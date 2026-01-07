@@ -1,0 +1,16 @@
+rules:
+  - name: CrashLoopDetected
+    when:
+      issue: BackOff
+    recommendation:
+      - Check container logs
+      - Verify startup command
+      - Roll back recent deployment
+
+  - name: FrequentRestart
+    when:
+      restarts_gt: 5
+    recommendation:
+      - Increase memory limits
+      - Check for memory leaks
+      - Roll back recent image
