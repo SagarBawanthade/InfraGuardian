@@ -1,9 +1,14 @@
+import "dotenv/config";
 import express from "express";
-
+import { sendSlackAlert } from "./alerts/slack.alert.js";
+import { canSendAlert } from "./alerts/alert.cache.js";
+import { formatSlackMessage } from "./alerts/alert.formatter.js";
 import { getProblematicPodEvents } from "./collectors/events.collector.js";
 import { getPodRestartCounts } from "./collectors/metrics.collector.js";
 import { correlate } from "./correlator/correlation.engine.js";
 import { recommend } from "./recommender/recommendations.js";
+
+
 
 const app = express();
 const PORT = 3000;
@@ -44,18 +49,33 @@ app.get("/analysis", async (req, res) => {
 
 // INSIGHTS
 app.get("/insights", async (req, res) => {
+  const alertsEnabled = process.env.ALERTS_ENABLED === "true";
+
   const events = await getProblematicPodEvents();
   const metrics = await getPodRestartCounts();
   const analysis = correlate(events, metrics);
 
-  res.json(
-    analysis.map(a => ({
-      ...a,
-      recommendations: recommend(a)
-    }))
-  );
+  const insights = analysis.map(a => ({
+    ...a,
+    recommendations: recommend(a)
+  }));
+
+  if (alertsEnabled) {
+    for (const insight of insights) {
+      const alertKey = `${insight.namespace}/${insight.pod}/${insight.issue}`;
+
+      if (canSendAlert(alertKey)) {
+        const payload = formatSlackMessage(insight);
+        await sendSlackAlert(payload);
+      }
+    }
+  }
+
+  res.json(insights);
 });
+
 
 app.listen(PORT, () => {
   console.log(`Infra Guardian listening on port ${PORT}`);
 });
+

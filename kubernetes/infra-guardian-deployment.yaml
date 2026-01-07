@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-guardian
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-guardian
+  template:
+    metadata:
+      labels:
+        app: infra-guardian
+    spec:
+      serviceAccountName: infra-guardian-sa
+      containers:
+        - name: infra-guardian
+          image: infra-guardian:0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PROM_URL
+              value: http://monitoring-kube-prometheus-prometheus.default:9090
+          ports:
+            - containerPort: 3000
