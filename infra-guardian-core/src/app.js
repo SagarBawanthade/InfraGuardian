@@ -13,6 +13,32 @@ import { recommend } from "./recommender/recommendations.js";
 const app = express();
 const PORT = 3000;
 
+
+async function runMonitoringCycle() {
+  const alertsEnabled = process.env.ALERTS_ENABLED === "true";
+
+  const events = await getProblematicPodEvents();
+  const metrics = await getPodRestartCounts();
+  const analysis = correlate(events, metrics);
+
+  const insights = analysis.map(a => ({
+    ...a,
+    recommendations: recommend(a)
+  }));
+
+  if (alertsEnabled) {
+    for (const insight of insights) {
+      const alertKey = `${insight.namespace}/${insight.pod}/${insight.issue}`;
+
+      if (canSendAlert(alertKey)) {
+        const payload = formatSlackMessage(insight);
+        await sendSlackAlert(payload);
+      }
+    }
+  }
+}
+
+
 // HEALTH
 app.get("/health", (req, res) => {
   res.json({ status: "Infra Guardian running" });
@@ -49,8 +75,6 @@ app.get("/analysis", async (req, res) => {
 
 // INSIGHTS
 app.get("/insights", async (req, res) => {
-  const alertsEnabled = process.env.ALERTS_ENABLED === "true";
-
   const events = await getProblematicPodEvents();
   const metrics = await getPodRestartCounts();
   const analysis = correlate(events, metrics);
@@ -60,22 +84,19 @@ app.get("/insights", async (req, res) => {
     recommendations: recommend(a)
   }));
 
-  if (alertsEnabled) {
-    for (const insight of insights) {
-      const alertKey = `${insight.namespace}/${insight.pod}/${insight.issue}`;
-
-      if (canSendAlert(alertKey)) {
-        const payload = formatSlackMessage(insight);
-        await sendSlackAlert(payload);
-      }
-    }
-  }
-
   res.json(insights);
 });
+
 
 
 app.listen(PORT, () => {
   console.log(`Infra Guardian listening on port ${PORT}`);
 });
+
+setInterval(() => {
+  runMonitoringCycle().catch(err =>
+    console.error("Monitoring cycle failed:", err.message)
+  );
+}, 30000); //30 sec
+
 

@@ -2,9 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: infra-guardian
-  namespace: default
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: infra-guardian
@@ -16,22 +15,29 @@ spec:
       serviceAccountName: infra-guardian-sa
       containers:
         - name: infra-guardian
-          image: sagarbawanthade/infra-guardian:0.1.0
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: IfNotPresent
+
           ports:
             - containerPort: 3000
+
           env:
             - name: ALERTS_ENABLED
-              value: "true"
-
+              value: "{{ .Values.alerts.enabled }}"
             - name: ALERT_COOLDOWN_MINUTES
-              value: "15"
-
+              value: "{{ .Values.alerts.cooldown }}"
+            {{- if .Values.prometheus.enabled }}
+            - name: PROM_URL
+              value: "{{ .Values.prometheus.url }}"
+            {{- end }}
             - name: SLACK_WEBHOOK_URL
               valueFrom:
                 secretKeyRef:
                   name: infra-guardian-secrets
                   key: SLACK_WEBHOOK_URL
 
-            - name: PROM_URL
-              value: "http://monitoring-kube-prometheus-prometheus.default:9090"
+          livenessProbe:
+{{ toYaml .Values.livenessProbe | indent 12 }}
+
+          readinessProbe:
+{{ toYaml .Values.readinessProbe | indent 12 }}

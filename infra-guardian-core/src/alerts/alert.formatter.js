@@ -1,6 +1,11 @@
 export function formatSlackMessage(insight) {
+  const recs =
+    insight.recommendations?.length > 0
+      ? insight.recommendations
+      : ["Investigate pod logs and recent changes"];
+
   return {
-    text: `🚨 *Infra Guardian Alert*`,
+    text: `🚨 Infra Guardian Alert`,
     blocks: [
       {
         type: "section",
@@ -20,7 +25,7 @@ export function formatSlackMessage(insight) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*Recommendations:*\n• ${insight.recommendations.join("\n• ")}`
+          text: `*Recommendations:*\n• ${recs.join("\n• ")}`
         }
       }
     ]
