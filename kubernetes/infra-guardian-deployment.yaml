@@ -35,3 +35,4 @@ spec:
 
             - name: PROM_URL
               value: "http://monitoring-kube-prometheus-prometheus.default:9090"
+              
